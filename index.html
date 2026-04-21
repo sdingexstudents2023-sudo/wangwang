@@ -733,21 +733,31 @@
      * ───────────────────────────────────────── */
     async function init() {
       showLoadingState();
+      console.log('[汪宇宙] 正在连接 Supabase…');
 
-      const { data, error } = await db.from('wang').select('*').order('编号');
+      const { data, error } = await db.from('wang').select('*');
 
       if (error) {
+        console.error('[汪宇宙] 读取失败', error);
         showErrorState('连接 Supabase 失败：' + error.message);
         return;
       }
 
+      console.log('[汪宇宙] 读取成功，当前记录数：', data.length);
+
       if (data.length === 0) {
         /* 表空 → 插入种子数据 */
+        console.log('[汪宇宙] 表为空，写入初始数据…');
         const { error: insertErr } = await db.from('wang').insert(SEED);
-        if (insertErr) { showErrorState('初始化数据失败：' + insertErr.message); return; }
+        if (insertErr) {
+          console.error('[汪宇宙] 写入失败', insertErr);
+          showErrorState('初始化数据失败：' + insertErr.message);
+          return;
+        }
 
-        const { data: seeded, error: e2 } = await db.from('wang').select('*').order('编号');
+        const { data: seeded, error: e2 } = await db.from('wang').select('*');
         if (e2) { showErrorState('数据读取失败：' + e2.message); return; }
+        console.log('[汪宇宙] 初始化完成，共', seeded.length, '只狗狗');
         renderDogs(seeded);
       } else {
         renderDogs(data);
