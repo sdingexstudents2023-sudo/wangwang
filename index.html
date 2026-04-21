@@ -474,13 +474,15 @@
     const PAWS_INIT  = ['3.2k', '5.8k', '7.1k', '4.4k', '2.9k', '9.3k'];
 
     /* ─────────────────────────────────────────
-     * 图片裁剪（Canvas，Promise 版）
+     * 图片裁剪（Canvas）→ Blob（供 Storage 上传）
      * ───────────────────────────────────────── */
-    function cropToCanvasAsync(file, targetW, targetH) {
-      return new Promise(resolve => {
+    function cropToBlobAsync(file, targetW, targetH) {
+      return new Promise((resolve, reject) => {
         const reader = new FileReader();
+        reader.onerror = reject;
         reader.onload = e => {
           const img = new Image();
+          img.onerror = reject;
           img.onload = () => {
             const scale  = Math.max(targetW / img.width, targetH / img.height);
             const srcX   = (img.width  * scale - targetW) / 2 / scale;
@@ -489,7 +491,10 @@
             canvas.width  = targetW;
             canvas.height = targetH;
             canvas.getContext('2d').drawImage(img, srcX, srcY, targetW / scale, targetH / scale, 0, 0, targetW, targetH);
-            resolve(canvas.toDataURL('image/jpeg', 0.92));
+            canvas.toBlob(
+              blob => blob ? resolve(blob) : reject(new Error('canvas toBlob 失败')),
+              'image/jpeg', 0.92
+            );
           };
           img.src = e.target.result;
         };
@@ -498,11 +503,34 @@
     }
 
     /* ─────────────────────────────────────────
+     * 上传单张图片到 Supabase Storage，返回公开 URL
+     * 路径：{dogId}/{时间戳}_{随机串}.{ext}
+     * ───────────────────────────────────────── */
+    async function uploadToStorage(blob, dogId, fileName) {
+      const rawExt = (fileName.split('.').pop() || 'jpg').toLowerCase();
+      const ext    = /^[a-z0-9]{1,6}$/.test(rawExt) ? rawExt : 'jpg';
+      const rand   = Math.random().toString(36).slice(2, 8);
+      const path   = `${dogId}/${Date.now()}_${rand}.${ext}`;
+
+      const { error } = await db.storage
+        .from('wang-images')
+        .upload(path, blob, { contentType: 'image/jpeg', upsert: false });
+
+      if (error) throw new Error('Storage 上传失败：' + error.message);
+
+      const { data: { publicUrl } } = db.storage
+        .from('wang-images')
+        .getPublicUrl(path);
+
+      return publicUrl;
+    }
+
+    /* ─────────────────────────────────────────
      * Supabase 图片写入
      * ───────────────────────────────────────── */
-    async function savePhotosToDb(编号, dataURLs) {
+    async function savePhotosToDb(编号, urls) {
       const { error } = await db.from('wang')
-        .update({ 图片: dataURLs, 变更时间: new Date().toISOString() })
+        .update({ 图片: urls, 变更时间: new Date().toISOString() })
         .eq('编号', 编号);
       if (error) {
         alert('📦 照片保存到云端失败：' + error.message);
@@ -549,8 +577,8 @@
         const dbImgs     = Array.isArray(dog.图片) && dog.图片.length ? dog.图片 : [''];
         /* 原始默认图（Unsplash URL，用于恢复） */
         const defaultImg = DEFAULT_IMGS[dog.名字] ?? dbImgs;
-        /* 是否已有自定义图（base64 开头说明是上传的） */
-        const hasCustom  = dbImgs[0].startsWith('data:');
+        /* 是否已有自定义图（非 Unsplash URL 视为已上传，兼容旧 base64 数据） */
+        const hasCustom  = !!dbImgs[0] && !dbImgs[0].includes('unsplash.com');
 
         /* ── 外层包裹 ── */
         const wrapper = document.createElement('div');
@@ -674,10 +702,18 @@
           uploadBtn.disabled     = true;
 
           try {
-            const dataURLs = await Promise.all(files.map(f => cropToCanvasAsync(f, IMG_W, IMG_H)));
-            await savePhotosToDb(dog.编号, dataURLs);   // ← 保存到 Supabase
+            // 1. 裁剪为 Blob（300×200，cover 居中）
+            const blobs = await Promise.all(files.map(f => cropToBlobAsync(f, IMG_W, IMG_H)));
 
-            images = dataURLs;
+            // 2. 逐张上传到 Supabase Storage，拿到公开 URL
+            const urls = await Promise.all(
+              blobs.map((blob, i) => uploadToStorage(blob, dog.编号, files[i].name))
+            );
+
+            // 3. 把 URL 数组写入数据库
+            await savePhotosToDb(dog.编号, urls);
+
+            images = urls;
             showSlide(0, false);
             startAutoPlay();
             setUploadBtnState(true);
@@ -689,8 +725,9 @@
               uploadBtn.innerHTML = '📷 更换照片';
               uploadBtn.classList.remove('uploaded');
             }, 3000);
-          } catch { /* 错误已在 savePhotosToDb 中 alert */ }
-          finally {
+          } catch (err) {
+            alert('📦 照片上传失败：' + (err?.message || err));
+          } finally {
             loadMask.style.display = 'none';
             uploadBtn.disabled     = false;
           }
