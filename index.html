@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🐾 汪宇宙 — 狗狗星球</title>
+  <style>
+    /* ── 全局 ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #3b0764 0%, #6d28d9 40%, #9333ea 70%, #c026d3 100%);
+      padding: 48px 16px 64px;
+    }
+
+    /* ── 星星背景装饰 ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px),
+        radial-gradient(circle, rgba(255,255,255,0.08) 1px, transparent 1px);
+      background-size: 60px 60px, 30px 30px;
+      background-position: 0 0, 15px 15px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Header ── */
+    .site-header {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      margin-bottom: 52px;
+    }
+
+    .site-header .badge {
+      display: inline-block;
+      background: rgba(255,255,255,0.15);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.25);
+      color: #fde68a;
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.15em;
+      padding: 4px 16px;
+      border-radius: 999px;
+      margin-bottom: 16px;
+    }
+
+    .site-header h1 {
+      font-size: clamp(2.4rem, 6vw, 4rem);
+      font-weight: 800;
+      color: #fff;
+      text-shadow: 0 4px 24px rgba(0,0,0,0.3);
+      line-height: 1.1;
+    }
+
+    .site-header h1 span {
+      background: linear-gradient(90deg, #fbbf24, #fb923c, #f472b6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .site-header p {
+      margin-top: 12px;
+      color: rgba(255,255,255,0.75);
+      font-size: 1.05rem;
+    }
+
+    /* ── 卡片网格 ── */
+    .grid {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 28px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    /* ── 卡片包裹层（含上传按钮区） ── */
+    .card-wrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    /* ── 上传按钮区（位于卡片正上方） ── */
+    .upload-bar {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    /* 上传栏内的按钮共用基础样式 */
+    .upload-bar-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 18px;
+      border-radius: 999px;
+      border: 1.5px dashed rgba(255, 255, 255, 0.55);
+      background: rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(8px);
+      color: #fff;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.22s ease, border-color 0.22s ease, transform 0.18s ease;
+      letter-spacing: 0.03em;
+    }
+
+    .upload-bar-btn:hover {
+      background: rgba(255, 255, 255, 0.25);
+      border-color: rgba(255, 255, 255, 0.9);
+      transform: scale(1.04);
+    }
+
+    .upload-bar-btn:active {
+      transform: scale(0.97);
+    }
+
+    /* 上传成功后按钮变为"已更换"提示样式 */
+    .upload-btn.uploaded {
+      border-color: rgba(134, 239, 172, 0.7);
+      background: rgba(134, 239, 172, 0.18);
+      color: #bbf7d0;
+    }
+
+    /* "恢复默认"按钮：仅在已上传自定义图片时显示 */
+    .reset-btn {
+      border-color: rgba(252, 165, 165, 0.6);
+      background: rgba(252, 165, 165, 0.12);
+      color: #fecaca;
+      display: none;
+    }
+
+    .reset-btn:hover {
+      background: rgba(252, 165, 165, 0.28);
+      border-color: rgba(252, 165, 165, 0.9);
+    }
+
+    /* 隐藏的文件输入框 */
+    .file-input { display: none; }
+
+    /* ── 单张卡片 ── */
+    .card {
+      background: rgba(255,255,255,0.97);
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow:
+        0 8px 32px rgba(0,0,0,0.18),
+        0 2px 8px rgba(0,0,0,0.12);
+      transition: transform 0.32s cubic-bezier(.34,1.56,.64,1),
+                  box-shadow 0.32s ease;
+      cursor: pointer;
+    }
+
+    .card:hover {
+      transform: translateY(-10px) scale(1.025);
+      box-shadow:
+        0 24px 56px rgba(0,0,0,0.28),
+        0 4px 16px rgba(0,0,0,0.14);
+    }
+
+    /* ── 图片展示区 ── */
+    .card-img-wrap {
+      position: relative;
+      height: 200px;
+      overflow: hidden;
+      background: #f3f4f6;
+    }
+
+    .card-img-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center center;
+      transition: transform 0.45s ease;
+      display: block;
+    }
+
+    .card:hover .card-img-wrap img {
+      transform: scale(1.07);
+    }
+
+    /* 图片加载中的 loading 遮罩（层级最高，覆盖轮播控件） */
+    .img-loading-mask {
+      display: none;
+      position: absolute;
+      inset: 0;
+      background: rgba(255, 255, 255, 0.75);
+      backdrop-filter: blur(3px);
+      align-items: center;
+      justify-content: center;
+      font-size: 1.6rem;
+      z-index: 10;
+    }
+
+    /* 品种标签 */
+    .breed-tag {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      background: rgba(255,255,255,0.88);
+      backdrop-filter: blur(6px);
+      color: #7c3aed;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 4px 12px;
+      border-radius: 999px;
+      letter-spacing: 0.05em;
+      z-index: 2;
+    }
+
+    /* 爱心按钮 */
+    .heart-btn {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.88);
+      backdrop-filter: blur(6px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: transform 0.2s ease;
+      border: none;
+      outline: none;
+      z-index: 2;
+    }
+
+    .heart-btn:hover { transform: scale(1.25); }
+    .heart-btn.liked { background: #fce7f3; }
+
+    /* ── 轮播：左右切换按钮 ── */
+    .carousel-btn {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.82);
+      backdrop-filter: blur(6px);
+      border: none;
+      cursor: pointer;
+      display: none;              /* 默认隐藏，多张图时显示 */
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      font-weight: 900;
+      color: #374151;
+      z-index: 3;
+      transition: background 0.2s ease, transform 0.2s ease;
+      user-select: none;
+      line-height: 1;
+    }
+
+    .carousel-prev { left: 9px; }
+    .carousel-next { right: 9px; }
+
+    .carousel-prev:hover { background: #fff; transform: translateY(-50%) scale(1.12); }
+    .carousel-next:hover { background: #fff; transform: translateY(-50%) scale(1.12); }
+
+    /* ── 轮播：当前张数指示器 ── */
+    .carousel-counter {
+      position: absolute;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.48);
+      color: #fff;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 3px 11px;
+      border-radius: 999px;
+      display: none;              /* 默认隐藏，多张图时显示 */
+      z-index: 3;
+      white-space: nowrap;
+      letter-spacing: 0.06em;
+      pointer-events: none;
+    }
+
+    /* ── 轮播：切换时的淡入动画 ── */
+    @keyframes imgFadeIn {
+      from { opacity: 0.15; }
+      to   { opacity: 1; }
+    }
+
+    .card-img-wrap img.is-switching {
+      animation: imgFadeIn 0.3s ease forwards;
+    }
+
+    /* ── 内容区 ── */
+    .card-body {
+      padding: 20px 22px 24px;
+    }
+
+    .card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .dog-name {
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: #1e1b4b;
+    }
+
+    .dog-age {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: linear-gradient(135deg, #fde68a, #fb923c);
+      color: #78350f;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 999px;
+    }
+
+    .dog-desc {
+      font-size: 0.88rem;
+      color: #6b7280;
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+
+    /* 性格标签 */
+    .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+    }
+
+    .tag {
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 3px 11px;
+      border-radius: 999px;
+      letter-spacing: 0.02em;
+    }
+
+    .tag-orange { background: #fff7ed; color: #ea580c; }
+    .tag-pink   { background: #fdf2f8; color: #db2777; }
+    .tag-purple { background: #f5f3ff; color: #7c3aed; }
+    .tag-green  { background: #f0fdf4; color: #16a34a; }
+    .tag-blue   { background: #eff6ff; color: #2563eb; }
+    .tag-rose   { background: #fff1f2; color: #e11d48; }
+
+    /* 底部分隔线 + 互动数 */
+    .card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid #f3f4f6;
+      font-size: 0.8rem;
+      color: #9ca3af;
+    }
+
+    .card-footer .paw { font-size: 1rem; margin-right: 3px; }
+
+    /* ── 底部 ── */
+    .site-footer {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      margin-top: 60px;
+      color: rgba(255,255,255,0.5);
+      font-size: 0.82rem;
+    }
+
+    /* ── 响应式 ── */
+    @media (max-width: 480px) {
+      .card-img-wrap { height: 180px; }
+      .card-body { padding: 16px 18px 20px; }
+    }
+
+    /* ── 加载旋转动画 ── */
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="site-header">
+    <div class="badge">🌌 欢迎来到</div>
+    <h1>汪<span>宇宙</span> 🐾</h1>
+    <p>每一只狗狗，都是独一无二的小星球</p>
+  </header>
+
+  <!-- 卡片网格 -->
+  <main class="grid" id="cardGrid"></main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <p>🐕 Made with love for every good boy & girl · 汪宇宙 2026</p>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script>
+    /* ─────────────────────────────────────────
+     * Supabase 配置
+     * ───────────────────────────────────────── */
+    const SUPABASE_URL  = 'https://ptzlyxxftmloyftctgfl.supabase.co';
+    const SUPABASE_ANON = 'sb_publishable_T-PQrS1u-YrZBY8ZPO0sTQ_XyYbwuyc';
+    const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+    /* ─────────────────────────────────────────
+     * 种子数据（表为空时自动插入）
+     * 标签以 JSON 字符串存入 varchar 字段
+     * ───────────────────────────────────────── */
+    const SEED = [
+      {
+        名字: '豆豆', 品种: '柴犬', 年龄: 3,
+        描述: '精力超旺，每天都要出门跑三圈。对陌生人假装高冷，其实偷偷观察你好久了。',
+        标签: JSON.stringify([{ text: '活泼好动', cls: 'tag-orange' }, { text: '傲娇', cls: 'tag-purple' }, { text: '爱运动', cls: 'tag-green' }]),
+        图片: ['https://images.unsplash.com/photo-1552053831-71594a27632d?w=600&q=80'],
+      },
+      {
+        名字: '花花', 品种: '边牧', 年龄: 5,
+        描述: '天生的模特气质，走路带风。超级温柔，喜欢把头枕在主人腿上打盹。',
+        标签: JSON.stringify([{ text: '温柔乖巧', cls: 'tag-pink' }, { text: '亲人', cls: 'tag-rose' }, { text: '爱撒娇', cls: 'tag-purple' }]),
+        图片: ['https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=600&q=80'],
+      },
+      {
+        名字: '奶茶', 品种: '金毛', 年龄: 2,
+        描述: '吃货本货，闻到食物香味能从睡梦中瞬间醒来。笑起来像一颗小太阳。',
+        标签: JSON.stringify([{ text: '贪吃可爱', cls: 'tag-orange' }, { text: '开朗', cls: 'tag-green' }, { text: '爱笑', cls: 'tag-pink' }]),
+        图片: ['https://images.unsplash.com/photo-1601979031925-424e53b6caaa?w=600&q=80'],
+      },
+      {
+        名字: '球球', 品种: '哈士奇', 年龄: 4,
+        描述: '外表是雪山守卫，内心是碎碎念的话痨。每天必须跟主人汇报今天的所见所闻。',
+        标签: JSON.stringify([{ text: '话唠', cls: 'tag-blue' }, { text: '忠诚', cls: 'tag-purple' }, { text: '戏精', cls: 'tag-rose' }]),
+        图片: ['https://images.unsplash.com/photo-1617895153857-82fe0c43621b?w=600&q=80'],
+      },
+      {
+        名字: '泡芙', 品种: '法斗', 年龄: 1,
+        描述: '小小的身体里住着一颗大大的灵魂。喜欢踩着响声在凌晨两点全力奔跑。',
+        标签: JSON.stringify([{ text: '调皮捣蛋', cls: 'tag-orange' }, { text: '精力充沛', cls: 'tag-green' }, { text: '夜猫子', cls: 'tag-blue' }]),
+        图片: ['https://images.unsplash.com/photo-1575425186775-b8de9a427e67?w=600&q=80'],
+      },
+      {
+        名字: '椰子', 品种: '萨摩耶', 年龄: 6,
+        描述: '人生哲学只有一条：能躺着绝不坐着。毛茸茸的大笑脸能治愈世间一切烦恼。',
+        标签: JSON.stringify([{ text: '慵懒', cls: 'tag-purple' }, { text: '治愈系', cls: 'tag-pink' }, { text: '爱午睡', cls: 'tag-blue' }]),
+        图片: ['https://images.unsplash.com/photo-1612502169027-5ad6d7082cc7?w=600&q=80'],
+      },
+    ];
+
+    /* 默认 Unsplash 图（用于「恢复默认」时还原，不受 DB 内容影响） */
+    const DEFAULT_IMGS = Object.fromEntries(SEED.map(d => [d.名字, d.图片]));
+
+    /* 初始点赞数 / 足迹（不持久化到 DB，前端展示用） */
+    const LIKES_INIT = [128, 256, 312, 189,  97, 441];
+    const PAWS_INIT  = ['3.2k', '5.8k', '7.1k', '4.4k', '2.9k', '9.3k'];
+
+    /* ─────────────────────────────────────────
+     * 图片裁剪（Canvas，Promise 版）
+     * ───────────────────────────────────────── */
+    function cropToCanvasAsync(file, targetW, targetH) {
+      return new Promise(resolve => {
+        const reader = new FileReader();
+        reader.onload = e => {
+          const img = new Image();
+          img.onload = () => {
+            const scale  = Math.max(targetW / img.width, targetH / img.height);
+            const srcX   = (img.width  * scale - targetW) / 2 / scale;
+            const srcY   = (img.height * scale - targetH) / 2 / scale;
+            const canvas = document.createElement('canvas');
+            canvas.width  = targetW;
+            canvas.height = targetH;
+            canvas.getContext('2d').drawImage(img, srcX, srcY, targetW / scale, targetH / scale, 0, 0, targetW, targetH);
+            resolve(canvas.toDataURL('image/jpeg', 0.92));
+          };
+          img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    /* ─────────────────────────────────────────
+     * Supabase 图片写入
+     * ───────────────────────────────────────── */
+    async function savePhotosToDb(编号, dataURLs) {
+      const { error } = await db.from('wang')
+        .update({ 图片: dataURLs, 变更时间: new Date().toISOString() })
+        .eq('编号', 编号);
+      if (error) {
+        alert('📦 照片保存到云端失败：' + error.message);
+        throw error;
+      }
+    }
+
+    /* ─────────────────────────────────────────
+     * 加载 / 错误占位
+     * ───────────────────────────────────────── */
+    const grid = document.getElementById('cardGrid');
+
+    function showLoadingState() {
+      grid.innerHTML = `
+        <div style="grid-column:1/-1;text-align:center;color:rgba(255,255,255,0.75);padding:80px 0;">
+          <div style="font-size:2.8rem;animation:spin 1.2s linear infinite;display:inline-block">🐾</div>
+          <div style="margin-top:16px;font-size:1.05rem;">正在唤醒狗狗们…</div>
+        </div>`;
+    }
+
+    function showErrorState(msg) {
+      grid.innerHTML = `
+        <div style="grid-column:1/-1;text-align:center;color:rgba(255,180,180,0.9);padding:80px 0;">
+          <div style="font-size:2.8rem">😢</div>
+          <div style="margin-top:16px;font-size:0.95rem;">${msg}</div>
+        </div>`;
+    }
+
+    /* ─────────────────────────────────────────
+     * 渲染卡片
+     * ───────────────────────────────────────── */
+    const IMG_W = 300;
+    const IMG_H = 200;
+
+    function renderDogs(rows) {
+      grid.innerHTML = '';
+
+      rows.forEach((dog, seqIdx) => {
+        /* 解析标签 */
+        let tags = [];
+        try { tags = JSON.parse(dog.标签 || '[]'); } catch { /* ignore */ }
+
+        /* 当前图片列表（来自 DB） */
+        const dbImgs     = Array.isArray(dog.图片) && dog.图片.length ? dog.图片 : [''];
+        /* 原始默认图（Unsplash URL，用于恢复） */
+        const defaultImg = DEFAULT_IMGS[dog.名字] ?? dbImgs;
+        /* 是否已有自定义图（base64 开头说明是上传的） */
+        const hasCustom  = dbImgs[0].startsWith('data:');
+
+        /* ── 外层包裹 ── */
+        const wrapper = document.createElement('div');
+        wrapper.className = 'card-wrapper';
+
+        /* ── 上传按钮区 ── */
+        const uploadBar = document.createElement('div');
+        uploadBar.className = 'upload-bar';
+
+        const uploadBtn = document.createElement('button');
+        uploadBtn.className = 'upload-bar-btn upload-btn';
+        uploadBtn.setAttribute('aria-label', `为${dog.名字}选择照片`);
+
+        const fileInput = document.createElement('input');
+        fileInput.type     = 'file';
+        fileInput.accept   = 'image/*';
+        fileInput.multiple = true;
+        fileInput.className = 'file-input';
+
+        const resetBtn = document.createElement('button');
+        resetBtn.className = 'upload-bar-btn reset-btn';
+        resetBtn.setAttribute('aria-label', `恢复${dog.名字}的默认照片`);
+        resetBtn.innerHTML = '🗑 恢复默认';
+
+        uploadBar.append(uploadBtn, resetBtn, fileInput);
+
+        /* ── 卡片 ── */
+        const card = document.createElement('div');
+        card.className = 'card';
+
+        const tagHTML   = tags.map(t => `<span class="tag ${t.cls}">${t.text}</span>`).join('');
+        const likeCount = LIKES_INIT[seqIdx] ?? 0;
+
+        card.innerHTML = `
+          <div class="card-img-wrap">
+            <img src="${dbImgs[0]}" alt="${dog.名字}" loading="lazy" />
+            <div class="img-loading-mask" aria-hidden="true">⏳</div>
+            <span class="breed-tag">${dog.品种 || ''}</span>
+            <button class="heart-btn" aria-label="点赞">🤍</button>
+            <button class="carousel-btn carousel-prev" aria-label="上一张">‹</button>
+            <button class="carousel-btn carousel-next" aria-label="下一张">›</button>
+            <div class="carousel-counter"></div>
+          </div>
+          <div class="card-body">
+            <div class="card-top">
+              <span class="dog-name">${dog.名字}</span>
+              <span class="dog-age">🐾 ${dog.年龄} 岁</span>
+            </div>
+            <p class="dog-desc">${dog.描述 || ''}</p>
+            <div class="tags">${tagHTML}</div>
+            <div class="card-footer">
+              <span><span class="paw">🐾</span>${PAWS_INIT[seqIdx] ?? ''} 足迹</span>
+              <span class="likes-display">❤️ ${likeCount}</span>
+            </div>
+          </div>
+        `;
+
+        /* 取关键 DOM */
+        const imgWrap  = card.querySelector('.card-img-wrap');
+        const cardImg  = card.querySelector('img');
+        const loadMask = card.querySelector('.img-loading-mask');
+        const prevBtn  = card.querySelector('.carousel-prev');
+        const nextBtn  = card.querySelector('.carousel-next');
+        const counter  = card.querySelector('.carousel-counter');
+        const heartBtn = card.querySelector('.heart-btn');
+        const likesEl  = card.querySelector('.likes-display');
+
+        /* ── 轮播状态 ── */
+        let images       = [...dbImgs];
+        let currentSlide = 0;
+        let autoTimer    = null;
+
+        function stopAutoPlay() {
+          if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
+        }
+        function startAutoPlay() {
+          stopAutoPlay();
+          if (images.length > 1) autoTimer = setInterval(() => showSlide(currentSlide + 1), 3000);
+        }
+        function showSlide(n, animate = true) {
+          currentSlide = (n + images.length) % images.length;
+          if (animate && images.length > 1) {
+            cardImg.classList.remove('is-switching');
+            void cardImg.offsetWidth;
+            cardImg.src = images[currentSlide];
+            cardImg.classList.add('is-switching');
+          } else {
+            cardImg.classList.remove('is-switching');
+            cardImg.src = images[currentSlide];
+          }
+          const multi = images.length > 1;
+          prevBtn.style.display = multi ? 'flex'  : 'none';
+          nextBtn.style.display = multi ? 'flex'  : 'none';
+          counter.style.display = multi ? 'block' : 'none';
+          if (multi) counter.textContent = `${currentSlide + 1} / ${images.length}`;
+        }
+        function setUploadBtnState(custom) {
+          uploadBtn.innerHTML    = custom ? '📷 更换照片' : '📷 选择照片';
+          resetBtn.style.display = custom ? 'inline-flex' : 'none';
+        }
+
+        /* ── 初始化 ── */
+        showSlide(0, false);
+        setUploadBtnState(hasCustom);
+        if (images.length > 1) startAutoPlay();
+
+        /* ── 轮播事件 ── */
+        imgWrap.addEventListener('mouseenter', stopAutoPlay);
+        imgWrap.addEventListener('mouseleave', () => { if (images.length > 1) startAutoPlay(); });
+        prevBtn.addEventListener('click', e => { e.stopPropagation(); showSlide(currentSlide - 1); startAutoPlay(); });
+        nextBtn.addEventListener('click', e => { e.stopPropagation(); showSlide(currentSlide + 1); startAutoPlay(); });
+
+        /* ── 上传照片 ── */
+        uploadBtn.addEventListener('click', () => { fileInput.value = ''; fileInput.click(); });
+
+        fileInput.addEventListener('change', async () => {
+          const files = Array.from(fileInput.files).filter(f => f.type.startsWith('image/'));
+          if (!files.length) return;
+
+          loadMask.style.display = 'flex';
+          uploadBtn.disabled     = true;
+
+          try {
+            const dataURLs = await Promise.all(files.map(f => cropToCanvasAsync(f, IMG_W, IMG_H)));
+            await savePhotosToDb(dog.编号, dataURLs);   // ← 保存到 Supabase
+
+            images = dataURLs;
+            showSlide(0, false);
+            startAutoPlay();
+            setUploadBtnState(true);
+
+            const tip = files.length > 1 ? ` (${files.length}张)` : '';
+            uploadBtn.innerHTML = `✅ 已更换${tip}`;
+            uploadBtn.classList.add('uploaded');
+            setTimeout(() => {
+              uploadBtn.innerHTML = '📷 更换照片';
+              uploadBtn.classList.remove('uploaded');
+            }, 3000);
+          } catch { /* 错误已在 savePhotosToDb 中 alert */ }
+          finally {
+            loadMask.style.display = 'none';
+            uploadBtn.disabled     = false;
+          }
+        });
+
+        /* ── 恢复默认 ── */
+        resetBtn.addEventListener('click', async () => {
+          resetBtn.disabled = true;
+          try {
+            await savePhotosToDb(dog.编号, defaultImg);   // ← 还原 Unsplash URL 到 Supabase
+            images = [...defaultImg];
+            currentSlide = 0;
+            stopAutoPlay();
+            showSlide(0, false);
+            setUploadBtnState(false);
+          } catch { /* 错误已 alert */ }
+          finally { resetBtn.disabled = false; }
+        });
+
+        /* ── 点赞（前端状态，不持久化） ── */
+        let liked    = false;
+        let likeCnt  = likeCount;
+        heartBtn.addEventListener('click', e => {
+          e.stopPropagation();
+          liked = !liked;
+          heartBtn.textContent = liked ? '❤️' : '🤍';
+          heartBtn.classList.toggle('liked', liked);
+          likeCnt += liked ? 1 : -1;
+          likesEl.textContent = `❤️ ${likeCnt}`;
+        });
+
+        /* ── 组装 ── */
+        wrapper.append(uploadBar, card);
+        grid.appendChild(wrapper);
+      });
+    }
+
+    /* ─────────────────────────────────────────
+     * 入口：加载数据，表空则自动种入
+     * ───────────────────────────────────────── */
+    async function init() {
+      showLoadingState();
+
+      const { data, error } = await db.from('wang').select('*').order('编号');
+
+      if (error) {
+        showErrorState('连接 Supabase 失败：' + error.message);
+        return;
+      }
+
+      if (data.length === 0) {
+        /* 表空 → 插入种子数据 */
+        const { error: insertErr } = await db.from('wang').insert(SEED);
+        if (insertErr) { showErrorState('初始化数据失败：' + insertErr.message); return; }
+
+        const { data: seeded, error: e2 } = await db.from('wang').select('*').order('编号');
+        if (e2) { showErrorState('数据读取失败：' + e2.message); return; }
+        renderDogs(seeded);
+      } else {
+        renderDogs(data);
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>
