@@ -1014,6 +1014,10 @@
     const IMG_W = 300;
     const IMG_H = 200;
 
+    /* 各狗狗的原始默认图（名字 → URL数组），目前统一使用占位图，
+       未来可按名字定制；查不到时自动回退到 dbImgs。            */
+    const DEFAULT_IMGS = {};
+
     function renderDogs(rows) {
       grid.innerHTML = '';
 

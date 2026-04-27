@@ -2,39 +2,66 @@
 * 汪宇宙 -- 狗狗卡片展示
 
 ### 功能描述
-* 一个展示狗狗的信息和照片的网页，支持自定义上传照片并持久化保存
+* 一个展示狗狗信息和照片的社区网页，支持用户注册/登录，登录后可添加、编辑、删除自己的狗狗，并持久化保存照片
 
 ### 核心功能
-* 展示多张精美的狗狗卡片（共 6 张：豆豆、花花、奶茶、球球、泡芙、椰子）
+* 展示所有用户上传的狗狗卡片（完全由用户驱动，无预设种子数据）
 * 卡片包含：狗狗名字、年龄、品种标签、性格描述、性格标签组、足迹数、点赞数
 * 卡片设计精美，有阴影和圆角效果
 * 点赞交互：点击爱心按钮切换状态，数字实时增减
+* 登录用户专属入口：卡片网格末尾显示「➕ 添加狗狗」按钮
 
 ### 照片上传功能
-* 每张卡片上方提供「📷 选择照片」按钮，点击后打开文件选择对话框
+* 每张卡片上方提供「📷 选择照片」按钮，仅对狗狗主人可见
 * 文件类型限制：仅允许选择图片文件（accept="image/*"）
 * 图片处理：使用 Canvas API 自动裁剪为 300×200，采用 cover + 居中策略，保持比例不拉伸
 * 上传中显示 ⏳ 遮罩动画，完成后按钮显示「✅ 已更换」3 秒反馈
 * 上传成功后按钮切换为「📷 更换照片」，支持随时再次替换
 
 ### 照片持久化
-* 自定义图片通过 localStorage 本地存储（Key：wang_img_{idx}）
-* 再次打开页面自动恢复上次上传的照片，无需重新上传
-* 每张卡片提供「🗑 恢复默认」按钮，点击后清除存储并还原原始网络图
-* 存储容量：单张约 30–60 KB，6 张合计远低于浏览器 5 MB 限额
-* 存储写入失败（空间不足）时弹窗提示，不会静默失败
+* 自定义图片上传至 Supabase Storage（Bucket：wang-images）
+* 文件路径规则：`{狗狗id}/{当前时间}_{随机字符串}.{扩展名}`
+* 图片 URL 写回数据库 `图片` 字段（text[] 数组），页面刷新后自动恢复
+* 每张卡片提供「🗑 恢复默认」按钮（仅主人可见），点击后清除图片字段并显示默认占位图
+* 存储写入失败时弹窗提示，不会静默失败
+
+### 用户认证
+* 右上角 Auth 栏：未登录时显示「登录 / 注册」按钮，登录后显示邮箱简称和「退出」按钮
+* 注册：邮箱 + 密码，调用 `db.auth.signUp`
+* 登录：邮箱 + 密码，调用 `db.auth.signInWithPassword`
+* 退出：调用 `db.auth.signOut`，状态通过 `onAuthStateChange` 监听实时刷新
+* 弹窗支持「登录 ↔ 注册」模式快速切换
+
+### 权限控制（RLS）
+* 所有人（含未登录）可读取全部狗狗数据
+* 只有登录用户可以新增狗狗（`insert` 时自动写入 `user_id = auth.uid()`）
+* 只有狗狗主人（`user_id = auth.uid()`）可以更新和删除自己的狗狗
+* 前端 UI 层同步隐藏非主人的操作入口（上传照片、恢复默认、删除按钮）
+
+### 狗狗管理（CRUD）
+* **C（Create）**：登录后点击「➕ 添加狗狗」，填写名字、品种、年龄、描述、标签，可同步上传首张照片
+* **R（Read）**：所有人无需登录即可查看全部卡片
+* **U（Update）**：主人可更换/恢复照片；未来可扩展信息编辑弹窗
+* **D（Delete）**：主人点击「🗑 删除」按钮，二次确认后删除数据库记录及 Storage 中的图片
+
+### 错误处理
+* 所有网络请求套用 `withTimeout`（10 秒超时）+ `friendlyError` 错误映射
+* 加载失败时显示可爱的错误提示卡片，提供「重试」按钮
+* localStorage 被 Supabase Storage 取代后，不再有存储容量限制问题
 
 ### 技术要求
-* 所有代码放在一个 HTML 文件中，文件名：wang.html
-* 纯前端实现，无需后端
+* 所有代码放在一个 HTML 文件中，文件名：index.html（旧名 wang.html）
+* 纯前端实现，无需独立后端
 * 图片处理：Canvas API（FileReader + drawImage 裁剪）
-* 数据持久化：localStorage
+* 数据持久化：Supabase PostgreSQL + Supabase Storage
+* 用户认证：Supabase Auth（Email + Password）
 
 ### UI 风格
 * 温馨可爱的风格
 * 主色调：温暖的橙色或粉色系，配紫色背景（星空渐变）
 * 卡片式设计，有阴影和悬浮上浮效果
 * 手机和电脑都能正常显示（响应式网格布局）
+* 登录/注册/新增弹窗：毛玻璃遮罩 + 滑入动画
 
 ### 完成状态
 * ✅ 狗狗展示卡片（2026-04-18）
@@ -42,6 +69,7 @@
 * ✅ 照片本地持久化（2026-04-20）
 * ✅ 数据迁移至 Supabase（2026-04-21）：狗狗信息从 wang 表加载，自定义图片存入图片字段，首次访问自动初始化种子数据
 * ✅ Auth 认证与 CRUD 权限控制（2026-04-24）：实现用户注册/登录，主人才能编辑和删除自己的狗狗，清空静态种子数据，完全由用户驱动
+* ✅ 错误处理与网络容错（2026-04-24）：超时保护、友好错误提示、重试按钮
 
 ### 连接串
 ```
@@ -59,16 +87,37 @@ create table public.wang (
   标签 character varying null,
   描述 text null,
   图片 text[] null,
+  user_id uuid references auth.users(id) default auth.uid(),
   创建时间 timestamp without time zone null default now(),
   变更时间 timestamp without time zone null default now(),
   constraint wang_pkey primary key ("编号")
 ) TABLESPACE pg_default;
 ```
-### RLS 策略配置:
-数据库已配置公开岗位策略，允许所有人读写。
 
-### Supabase Storage 配置：
+### RLS 策略配置
+```sql
+-- 开启 RLS
+alter table public.wang enable row level security;
+
+-- 所有人可读
+create policy "任何人都可以读取" on public.wang for select using (true);
+
+-- 登录用户可插入（自动绑定 user_id）
+create policy "登录用户可插入" on public.wang for insert to authenticated
+  with check (auth.uid() = user_id);
+
+-- 主人可更新
+create policy "主人可更新" on public.wang for update to authenticated
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- 主人可删除
+create policy "主人可删除" on public.wang for delete to authenticated
+  using (auth.uid() = user_id);
+```
+
+### Supabase Storage 配置
 **Storage Bucket**: `wang-images`
 - 用于存储狗狗照片
-- public bucket (公开访问)
+- public bucket（公开读取）
 - 文件组织：`{狗狗id}/{当前时间}_{随机字符串}.{文件扩展名}`
+- Storage RLS：已开启 insert 策略，允许 authenticated 用户上传
